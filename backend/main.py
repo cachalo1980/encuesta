@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -13,7 +14,20 @@ from database import engine, get_db
 # Se ejecuta antes de instanciar FastAPI para que la DB esté lista desde el primer request.
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="DevMentor Survey API", version="0.3.0")
+app = FastAPI(title="DevMentor Survey API", version="0.4.0")
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Permite que el frontend (React u otro cliente) haga peticiones al backend
+# desde un origen diferente (distinto puerto o dominio).
+# allow_origins=["*"] es permisivo: válido para desarrollo y MVP.
+# En producción, reemplazar "*" por el dominio real del frontend.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────────

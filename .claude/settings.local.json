@@ -14,7 +14,8 @@
       "Bash(cp ~/.docker/config.json ~/.docker/config.json.bak)",
       "Bash(python3 -c ':*)",
       "Bash(curl -s -X POST \"http://localhost:8001/users/1/responses/\" -H \"Content-Type: application/json\" -d '[{\"question_id\": 1, \"text_answer\": \"25 años\"}, {\"question_id\": 12, \"scale_answer\": 7}]')",
-      "Bash(curl -s http://localhost:8001/users/1/responses/)"
+      "Bash(curl -s http://localhost:8001/users/1/responses/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8001/health)"
     ]
   }
 }

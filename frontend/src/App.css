@@ -207,6 +207,26 @@ body {
   margin-bottom: 2rem;
 }
 
+/* ── Formulario de registro ────────────────────────────────────────────────── */
+.registration-form {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.reg-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
 /* ── Acordeón ──────────────────────────────────────────────────────────────── */
 .accordion {
   background: #fff;

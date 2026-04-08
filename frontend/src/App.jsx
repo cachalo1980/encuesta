@@ -6,7 +6,6 @@ import SectionAccordion from './components/SectionAccordion'
 import AdminPanel from './components/AdminPanel'
 
 const API_URL = 'http://localhost:8001'
-const USER_ID = 1  // Placeholder hasta Sprint 10 (registro/login)
 
 function buildSections(questions) {
   const map = new Map()
@@ -42,8 +41,77 @@ function Navbar({ onAdminClick }) {
   )
 }
 
+// ── Formulario de registro ────────────────────────────────────────────────────
+function RegistrationForm({ onRegistered }) {
+  const [name, setName]       = useState('')
+  const [email, setEmail]     = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState(null)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!name.trim() || !email.trim()) {
+      setError('Por favor, completá todos los campos.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await axios.post(`${API_URL}/users/`, { name: name.trim(), email: email.trim() })
+      onRegistered(res.data.id, res.data.name)
+    } catch (err) {
+      setError(err.response?.data?.detail ?? err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="page">
+      <h1 className="page__title">Cuestionario de Diagnóstico</h1>
+      <p className="page__subtitle">
+        Antes de empezar, ingresá tus datos. Si ya lo completaste antes, usá el mismo email
+        para retomar donde lo dejaste.
+      </p>
+      <form className="registration-form" onSubmit={handleSubmit}>
+        <div className="reg-field">
+          <label className="reg-label" htmlFor="reg-name">Nombre completo</label>
+          <input
+            id="reg-name"
+            className="q-input-text"
+            type="text"
+            placeholder="Ej: Juan García"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <div className="reg-field">
+          <label className="reg-label" htmlFor="reg-email">Email</label>
+          <input
+            id="reg-email"
+            className="q-input-text"
+            type="email"
+            placeholder="Ej: juan@example.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+          />
+        </div>
+        {error && <p className="status-msg status-msg--error" style={{ padding: '0.5rem 0' }}>✗ {error}</p>}
+        <div className="submit-area" style={{ marginTop: '1.5rem' }}>
+          <button type="submit" className="btn-submit" disabled={loading}>
+            {loading ? 'Iniciando...' : 'Comenzar cuestionario →'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // ── Formulario del cuestionario ───────────────────────────────────────────────
 function SurveyPage() {
+  const [userId, setUserId]           = useState(null)
+  const [userName, setUserName]       = useState('')
   const [sections, setSections]       = useState([])
   const [answers, setAnswers]         = useState({})
   const [loading, setLoading]         = useState(true)
@@ -58,6 +126,11 @@ function SurveyPage() {
       .catch(err => { setLoadError(`Error al cargar el cuestionario: ${err.message}`); setLoading(false) })
   }, [])
 
+  function handleRegistered(id, name) {
+    setUserId(id)
+    setUserName(name)
+  }
+
   function handleChange(questionId, value) {
     setAnswers(prev => ({ ...prev, [questionId]: value }))
     setSubmitOk(false)
@@ -70,7 +143,7 @@ function SurveyPage() {
 
     setSubmitting(true); setSubmitOk(false); setSubmitError(null)
     try {
-      await axios.post(`${API_URL}/users/${USER_ID}/responses/`, payload)
+      await axios.post(`${API_URL}/users/${userId}/responses/`, payload)
       setSubmitOk(true)
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
     } catch (err) {
@@ -83,14 +156,19 @@ function SurveyPage() {
   if (loading)   return <p className="status-msg">Cargando cuestionario...</p>
   if (loadError) return <p className="status-msg status-msg--error">{loadError}</p>
 
+  // Mostrar registro si todavía no tenemos el ID del usuario
+  if (!userId) {
+    return <RegistrationForm onRegistered={handleRegistered} />
+  }
+
   const totalAnswered = Object.values(answers).filter(v => v !== undefined && v !== '' && v !== null).length
 
   return (
     <div className="page">
       <h1 className="page__title">Cuestionario de Diagnóstico</h1>
       <p className="page__subtitle">
-        Responde con honestidad. No hay respuestas correctas ni incorrectas.
-        Haz clic en cada sección para desplegarla.
+        Hola, <strong>{userName}</strong>. Responde con honestidad — no hay respuestas correctas
+        ni incorrectas. Hacé clic en cada sección para desplegarla.
       </p>
 
       <form onSubmit={e => e.preventDefault()}>
@@ -123,12 +201,8 @@ export default function App() {
   const navigate = useNavigate()
 
   function handleAdminClick() {
-    // window.prompt es síncrono y bloquea el hilo — aceptable para un acceso
-    // interno y puntual. En producción se usaría un modal con formulario controlado.
     const pwd = window.prompt('Contraseña de administrador:')
-    if (pwd === null) return  // el usuario canceló
-    // Navegamos a /admin pasando la contraseña en el estado de la ruta.
-    // useLocation().state en AdminPanel la recupera sin exponerla en la URL.
+    if (pwd === null) return
     navigate('/admin', { state: { adminPwd: pwd } })
   }
 

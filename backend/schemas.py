@@ -69,12 +69,13 @@ class ResponseOut(ResponseCreate):
 class AdminResponseOut(BaseModel):
     """
     Respuesta enriquecida para el panel de administración.
-    Incluye el texto de la pregunta (obtenido por JOIN) para que el mentor
-    no tenga que cruzar datos manualmente.
+    Incluye el texto de la pregunta y el nombre del usuario (obtenidos por JOIN)
+    para que el mentor no tenga que cruzar datos manualmente.
     No usa from_attributes porque se construye manualmente en el endpoint.
     """
     id:            int
     user_id:       int
+    user_name:     str
     question_id:   int
     question_text: str
     text_answer:   Optional[str] = None
@@ -87,3 +88,8 @@ class EvaluationUpdate(BaseModel):
     """Payload para PATCH /admin/responses/{id}/. Ambos campos son opcionales."""
     evaluation: Optional[str] = None
     score:      Optional[int] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Payload para PATCH /admin/change-password/."""
+    new_password: str

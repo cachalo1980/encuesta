@@ -98,9 +98,11 @@ export default function AdminPanel() {
   const navigate        = useNavigate()
   const adminPwd        = state?.adminPwd ?? ''
 
-  const [responses, setResponses] = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState(null)
+  const [responses, setResponses]         = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [error, setError]                 = useState(null)
+  const [changePwdMsg, setChangePwdMsg]   = useState(null)
+  const [changePwdError, setChangePwdError] = useState(null)
 
   useEffect(() => {
     if (!adminPwd) {
@@ -120,6 +122,27 @@ export default function AdminPanel() {
       })
   }, [adminPwd])
 
+  async function handleChangePassword() {
+    const newPwd = window.prompt('Nueva contraseña de administrador:')
+    if (newPwd === null) return          // canceló
+    if (!newPwd.trim()) {
+      setChangePwdError('La contraseña no puede estar vacía.')
+      return
+    }
+    setChangePwdMsg(null); setChangePwdError(null)
+    try {
+      await axios.patch(
+        `${API_URL}/admin/change-password/`,
+        { new_password: newPwd },
+        { headers: { 'X-Admin-Password': adminPwd } },
+      )
+      setChangePwdMsg('✓ Contraseña actualizada. Recuerda que se resetea al reiniciar el contenedor.')
+      setTimeout(() => setChangePwdMsg(null), 6000)
+    } catch (err) {
+      setChangePwdError('✗ ' + (err.response?.data?.detail ?? err.message))
+    }
+  }
+
   if (loading) return <p className="status-msg">Cargando respuestas...</p>
 
   if (error) return (
@@ -137,8 +160,13 @@ export default function AdminPanel() {
     <div className="page">
       <div className="admin-header">
         <h1 className="page__title">Panel de Administración</h1>
-        <button className="btn-back" onClick={() => navigate('/')}>← Volver al formulario</button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button className="btn-back" onClick={handleChangePassword}>🔑 Cambiar contraseña</button>
+          <button className="btn-back" onClick={() => navigate('/')}>← Volver al formulario</button>
+        </div>
       </div>
+      {changePwdMsg   && <p className="save-ok"   style={{ marginBottom: '0.5rem' }}>{changePwdMsg}</p>}
+      {changePwdError && <p className="save-error" style={{ marginBottom: '0.5rem' }}>{changePwdError}</p>}
       <p className="page__subtitle">
         {responses.length} respuestas de {byUser.size} usuario(s).
       </p>
@@ -149,7 +177,12 @@ export default function AdminPanel() {
 
       {Array.from(byUser.entries()).map(([userId, userResponses]) => (
         <section key={userId} className="user-section">
-          <h2 className="user-section__title">Usuario #{userId}</h2>
+          <h2 className="user-section__title">
+            {userResponses[0].user_name}
+            <span style={{ fontWeight: 400, fontSize: '0.85rem', marginLeft: '0.5rem', color: '#6b7280' }}>
+              (#{userId})
+            </span>
+          </h2>
           {userResponses.map(r => (
             <ResponseRow key={r.id} response={r} adminPwd={adminPwd} />
           ))}

@@ -32,7 +32,7 @@ function Navbar({ onAdminClick }) {
   return (
     <nav className="navbar">
       <span className="navbar__brand" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-        DevMentor Survey
+        <span className="brand-prompt">&gt;_</span> DevMentor
       </span>
       <button className="btn-admin" onClick={onAdminClick}>
         Admin

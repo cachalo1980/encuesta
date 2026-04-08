@@ -1,10 +1,6 @@
--- Script de inicialización ejecutado automáticamente por PostgreSQL
--- al crear el contenedor por primera vez (directorio /docker-entrypoint-initdb.d/)
+-- A partir del Sprint 2, el esquema de tablas es gestionado íntegramente
+-- por SQLAlchemy (models.py + create_all). Este archivo se mantiene para
+-- extensiones futuras que requieran SQL puro (funciones, triggers, etc.)
 
-CREATE TABLE IF NOT EXISTS users (
-    id   SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
-);
-
--- Fila de prueba para confirmar que la tabla existe y funciona
-INSERT INTO users (name) VALUES ('Admin') ON CONFLICT DO NOTHING;
+-- Extensión útil para UUIDs si se necesitan en el futuro
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

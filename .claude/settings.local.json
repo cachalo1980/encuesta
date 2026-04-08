@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(curl -s http://localhost:8001/health)",
+      "Bash(curl -s http://localhost:8001/db-check)",
+      "Bash(curl -s -X POST http://localhost:8001/users/ -H \"Content-Type: application/json\" -d '{\"name\": \"Manuel Rodriguez\", \"email\": \"radamanuelrod@gmail.com\"}')",
+      "Bash(curl -s http://localhost:8001/questions/)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status: %{http_code}\\\\n\" -X POST http://localhost:8001/users/ -H \"Content-Type: application/json\" -d '{\"name\": \"Manuel Rodriguez\", \"email\": \"radamanuelrod@gmail.com\"}')"
+    ]
+  }
+}

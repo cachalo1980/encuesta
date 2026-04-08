@@ -1,36 +1,62 @@
-import os
-from fastapi import FastAPI
-from sqlalchemy import create_engine, text
+from typing import List
 
-app = FastAPI(title="DevMentor Survey API", version="0.1.0")
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+
+import models
+import schemas
+from database import engine, get_db
+
+# Crea todas las tablas definidas en models.py si aún no existen en PostgreSQL.
+# Equivalente al init.sql del Sprint 1, pero gestionado 100% desde Python.
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="DevMentor Survey API", version="0.2.0")
 
 
-def get_database_url() -> str:
-    """Construye la URL de conexión a PostgreSQL desde variables de entorno."""
-    host = os.getenv("DB_HOST", "localhost")
-    port = os.getenv("DB_PORT", "5432")
-    name = os.getenv("DB_NAME", "encuesta_db")
-    user = os.getenv("DB_USER", "encuesta_user")
-    password = os.getenv("DB_PASSWORD", "encuesta_pass")
-    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
-
+# ── Utilidades ────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health_check():
-    """Endpoint de salud: confirma que la API está levantada y respondiendo."""
     return {"status": "ok"}
 
 
 @app.get("/db-check")
-def db_check():
-    """
-    Endpoint de verificación de DB: intenta abrir una conexión real a PostgreSQL
-    y ejecuta una consulta mínima. Útil para diagnosticar problemas de red o credenciales.
-    """
+def db_check(db: Session = Depends(get_db)):
     try:
-        engine = create_engine(get_database_url())
-        with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+        db.execute(text("SELECT 1"))
         return {"db_status": "connected"}
     except Exception as e:
         return {"db_status": "error", "detail": str(e)}
+
+
+# ── Usuarios ──────────────────────────────────────────────────────────────────
+
+@app.post("/users/", response_model=schemas.UserResponse, status_code=201)
+def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
+    """
+    Crea un nuevo usuario (mentoreado).
+    Retorna HTTP 400 si el email ya está registrado.
+    """
+    new_user = models.User(name=user_in.name, email=user_in.email)
+    db.add(new_user)
+    try:
+        db.commit()
+        db.refresh(new_user)  # Recarga el objeto con los valores generados por la DB (id, created_at)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="El email ya está registrado.")
+    return new_user
+
+
+# ── Preguntas ─────────────────────────────────────────────────────────────────
+
+@app.get("/questions/", response_model=List[schemas.QuestionResponse])
+def get_questions(db: Session = Depends(get_db)):
+    """
+    Retorna todas las preguntas del cuestionario.
+    Por ahora la tabla está vacía; se poblará en sprints futuros.
+    """
+    return db.query(models.Question).order_by(models.Question.order).all()

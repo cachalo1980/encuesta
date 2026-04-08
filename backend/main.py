@@ -9,12 +9,11 @@ import models
 import schemas
 from database import engine, get_db
 
-# Crea todas las tablas definidas en models.py si aún no existen en PostgreSQL.
-# Se ejecuta antes de instanciar FastAPI para garantizar que la DB esté lista
-# cuando llegue el primer request. Equivalente profesional al init.sql del Sprint 1.
+# Crea las tablas en PostgreSQL si aún no existen.
+# Se ejecuta antes de instanciar FastAPI para que la DB esté lista desde el primer request.
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="DevMentor Survey API", version="0.2.0")
+app = FastAPI(title="DevMentor Survey API", version="0.3.0")
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────────
@@ -37,15 +36,12 @@ def db_check(db: Session = Depends(get_db)):
 
 @app.post("/users/", response_model=schemas.UserResponse, status_code=201)
 def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """
-    Crea un nuevo usuario (mentoreado).
-    Retorna HTTP 400 si el email ya está registrado.
-    """
+    """Crea un nuevo mentoreado. Retorna HTTP 400 si el email ya existe."""
     new_user = models.User(name=user_in.name, email=user_in.email)
     db.add(new_user)
     try:
         db.commit()
-        db.refresh(new_user)  # Recarga el objeto con los valores generados por la DB (id, created_at)
+        db.refresh(new_user)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="El email ya está registrado.")
@@ -56,3 +52,71 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
 def get_users(db: Session = Depends(get_db)):
     """Retorna la lista de todos los usuarios registrados."""
     return db.query(models.User).order_by(models.User.id).all()
+
+
+# ── Preguntas ─────────────────────────────────────────────────────────────────
+
+@app.get("/questions/", response_model=List[schemas.QuestionResponse])
+def get_questions(db: Session = Depends(get_db)):
+    """
+    Retorna todas las preguntas del cuestionario ordenadas por 'order'.
+    La tabla se puebla ejecutando: docker compose exec backend python seed.py
+    """
+    return db.query(models.Question).order_by(models.Question.order).all()
+
+
+# ── Respuestas ────────────────────────────────────────────────────────────────
+
+@app.post(
+    "/users/{user_id}/responses/",
+    response_model=List[schemas.ResponseOut],
+    status_code=201,
+)
+def create_responses(
+    user_id: int,
+    responses_in: List[schemas.ResponseCreate],
+    db: Session = Depends(get_db),
+):
+    """
+    Guarda las respuestas de un mentoreado al cuestionario.
+    Recibe una lista de respuestas en un solo request (envío del formulario completo).
+    Retorna HTTP 404 si el usuario no existe.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    saved = []
+    for r in responses_in:
+        new_response = models.Response(
+            user_id=user_id,
+            question_id=r.question_id,
+            text_answer=r.text_answer,
+            scale_answer=r.scale_answer,
+        )
+        db.add(new_response)
+        saved.append(new_response)
+
+    db.commit()
+    for r in saved:
+        db.refresh(r)  # Recarga cada objeto para obtener id y created_at generados por la DB
+    return saved
+
+
+@app.get("/users/{user_id}/responses/", response_model=List[schemas.ResponseOut])
+def get_user_responses(user_id: int, db: Session = Depends(get_db)):
+    """
+    Retorna todas las respuestas de un mentoreado específico.
+    Permite al mentor revisar el cuestionario contestado.
+    Retorna HTTP 404 si el usuario no existe.
+    """
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    return (
+        db.query(models.Response)
+        .filter(models.Response.user_id == user_id)
+        .order_by(models.Response.question_id)
+        .all()
+    )

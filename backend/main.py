@@ -10,7 +10,8 @@ import schemas
 from database import engine, get_db
 
 # Crea todas las tablas definidas en models.py si aún no existen en PostgreSQL.
-# Equivalente al init.sql del Sprint 1, pero gestionado 100% desde Python.
+# Se ejecuta antes de instanciar FastAPI para garantizar que la DB esté lista
+# cuando llegue el primer request. Equivalente profesional al init.sql del Sprint 1.
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="DevMentor Survey API", version="0.2.0")
@@ -51,12 +52,7 @@ def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-# ── Preguntas ─────────────────────────────────────────────────────────────────
-
-@app.get("/questions/", response_model=List[schemas.QuestionResponse])
-def get_questions(db: Session = Depends(get_db)):
-    """
-    Retorna todas las preguntas del cuestionario.
-    Por ahora la tabla está vacía; se poblará en sprints futuros.
-    """
-    return db.query(models.Question).order_by(models.Question.order).all()
+@app.get("/users/", response_model=List[schemas.UserResponse])
+def get_users(db: Session = Depends(get_db)):
+    """Retorna la lista de todos los usuarios registrados."""
+    return db.query(models.User).order_by(models.User.id).all()

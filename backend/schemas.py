@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr
 class UserCreate(BaseModel):
     """Datos que el cliente debe enviar para crear un usuario."""
     name:  str
-    email: EmailStr   # Pydantic valida automáticamente el formato del email
+    email: EmailStr  # Pydantic valida automáticamente el formato del email
 
 
 class UserResponse(BaseModel):
@@ -18,16 +18,4 @@ class UserResponse(BaseModel):
 
     model_config = {"from_attributes": True}
     # from_attributes=True (antes orm_mode=True en Pydantic v1) permite que
-    # Pydantic lea datos desde atributos de un objeto ORM, no solo desde dicts.
-
-
-class QuestionResponse(BaseModel):
-    """Datos que la API devuelve al listar las preguntas del cuestionario."""
-    id:            int
-    section:       str
-    question_type: str
-    text:          str
-    is_required:   bool
-    order:         int
-
-    model_config = {"from_attributes": True}
+    # Pydantic lea los datos desde atributos de un objeto ORM, no solo desde dicts.

@@ -13,7 +13,7 @@ class User(Base):
     id         = Column(Integer, primary_key=True, index=True)
     name       = Column(String(255), nullable=False)
     email      = Column(String(255), unique=True, nullable=False, index=True)
-    role       = Column(String(50), nullable=False, default="mentee")
+    role       = Column(String(50), nullable=False, default="mentoreado")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relación inversa: acceder a user.responses devuelve todas sus respuestas

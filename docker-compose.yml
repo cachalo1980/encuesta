@@ -25,10 +25,8 @@ services:
       - "8001:8000"  # host:8001 → contenedor:8000 (evita conflicto con otras APIs en WSL)
     environment:
       DATABASE_URL: postgresql://encuesta_user:encuesta_pass@db:5432/encuesta_db
-      ADMIN_PASSWORD: devmentor2024
-      # Orígenes permitidos por CORS (separados por coma si hay más de uno).
-      # En local: el frontend corre en 4000. En producción: el dominio público.
-      ALLOWED_ORIGINS: http://localhost:4000
+      ADMIN_PASSWORD:     ${ADMIN_PASSWORD:-devmentor2024}
+      ALLOWED_ORIGINS:    ${ALLOWED_ORIGINS:-http://localhost:4000}
     depends_on:
       db:
         condition: service_healthy
@@ -39,11 +37,7 @@ services:
     ports:
       - "4000:4000"  # host:4000 → contenedor:4000 (Vite — 5173 y 3000 reservados en este WSL)
     environment:
-      # URL del backend que usará el frontend para las llamadas de axios.
-      # En local apunta al backend vía el puerto expuesto en el host.
-      # En el VPS, sobreescribí este valor con la URL pública del backend
-      # (ej: https://api.caruao.cloud o https://encuesta.caruao.cloud/api).
-      VITE_API_URL: http://localhost:8001
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8001}
     volumes:
       - ./frontend:/app          # bind-mount: cambios en el host se reflejan al instante
       - /app/node_modules        # volumen anónimo: protege node_modules del contenedor

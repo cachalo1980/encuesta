@@ -1,0 +1,228 @@
+/* ── Reset mínimo ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #f5f5f7;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+/* ── Página ────────────────────────────────────────────────────────────────── */
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+.page__title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0.25rem;
+}
+
+.page__subtitle {
+  color: #6b7280;
+  margin-bottom: 2rem;
+}
+
+/* ── Acordeón ──────────────────────────────────────────────────────────────── */
+.accordion {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+
+.accordion--open {
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.1);
+  border-color: #4f46e5;
+}
+
+/* Cabecera clicable */
+.accordion__header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 1rem;
+  transition: background 0.15s;
+}
+
+.accordion__header:hover {
+  background: #f0f0ff;
+}
+
+.accordion--open .accordion__header {
+  background: #eef2ff;
+  border-bottom: 1px solid #e0e7ff;
+}
+
+.accordion__title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #1a1a1a;
+}
+
+.accordion--open .accordion__title {
+  color: #4f46e5;
+}
+
+/* Lado derecho: badge + flecha */
+.accordion__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.accordion__badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+}
+
+.accordion__badge--done {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.accordion__arrow {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+.accordion--open .accordion__arrow {
+  transform: rotate(180deg);
+  color: #4f46e5;
+}
+
+/* Cuerpo de la sección */
+.accordion__body {
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Bloque de pregunta ────────────────────────────────────────────────────── */
+.question-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.question-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.question-order {
+  color: #4f46e5;
+  font-weight: 700;
+}
+
+.question-required {
+  color: #dc2626;
+}
+
+/* ── Inputs ────────────────────────────────────────────────────────────────── */
+.q-input-text,
+.q-textarea {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fafafa;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.q-input-text:focus,
+.q-textarea:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  background: #fff;
+}
+
+.q-textarea { resize: vertical; }
+
+/* Escala lineal */
+.q-scale {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.scale-edge {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.scale-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #374151;
+}
+
+.scale-option input[type="radio"] {
+  accent-color: #4f46e5;
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+}
+
+/* ── Botón de envío ────────────────────────────────────────────────────────── */
+.submit-area {
+  margin-top: 2.5rem;
+  text-align: center;
+}
+
+.btn-submit {
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  padding: 0.9rem 2.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.btn-submit:hover  { background: #4338ca; }
+.btn-submit:active { transform: scale(0.98); }
+
+/* ── Estado de carga / error ───────────────────────────────────────────────── */
+.status-msg {
+  text-align: center;
+  padding: 3rem;
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.status-msg--error { color: #dc2626; }

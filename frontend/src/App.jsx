@@ -1,41 +1,80 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import './App.css'
+import SectionAccordion from './components/SectionAccordion'
 
-// El frontend corre en http://localhost:3000 (host → contenedor 5173).
-// El backend corre en http://localhost:8001 (host → contenedor 8000).
-// El navegador hace la petición directamente a localhost:8001,
-// que es el puerto del HOST. Docker expone ese puerto al host,
-// por eso funciona. El CORS configurado en Sprint 4 le indica
-// al navegador que este origen (localhost:3000) está permitido.
 const API_URL = 'http://localhost:8001'
 
-function App() {
-  const [backendStatus, setBackendStatus] = useState('Conectando...')
-  const [error, setError] = useState(null)
+// Transforma el array plano de preguntas en un array de secciones ordenadas.
+// Devuelve: [{ name: "1. Perfil General", questions: [...] }, ...]
+// Usamos un array (no un objeto) para preservar el orden de inserción.
+function buildSections(questions) {
+  const map = new Map()
+  for (const q of questions) {
+    if (!map.has(q.section)) map.set(q.section, [])
+    map.get(q.section).push(q)
+  }
+  return Array.from(map.entries()).map(([name, questions]) => ({ name, questions }))
+}
+
+export default function App() {
+  const [sections, setSections] = useState([])   // array de { name, questions }
+  const [answers, setAnswers]   = useState({})   // { [question_id]: valor }
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
 
   useEffect(() => {
-    axios.get(`${API_URL}/health`)
+    axios.get(`${API_URL}/questions/`)
       .then(res => {
-        setBackendStatus(JSON.stringify(res.data))
-        setError(null)
+        setSections(buildSections(res.data))
+        setLoading(false)
       })
       .catch(err => {
-        setError(`Error: ${err.message}`)
-        setBackendStatus('—')
+        setError(`Error al cargar el cuestionario: ${err.message}`)
+        setLoading(false)
       })
   }, [])
 
+  // Actualiza el estado global de respuestas.
+  // Se pasa hacia abajo como prop para que los acordeones puedan escribir en él.
+  function handleChange(questionId, value) {
+    setAnswers(prev => ({ ...prev, [questionId]: value }))
+  }
+
+  function handleSubmit() {
+    console.log('Respuestas acumuladas:', answers)
+    alert('Respuestas registradas en consola (F12 → Console).\nEl envío al backend llega en el próximo sprint.')
+  }
+
+  if (loading) return <p className="status-msg">Cargando cuestionario...</p>
+  if (error)   return <p className="status-msg status-msg--error">{error}</p>
+
   return (
-    <div style={{ fontFamily: 'sans-serif', padding: '2rem' }}>
-      <h1>DevMentor Survey</h1>
-      <hr />
-      <h2>Conexión con el backend</h2>
-      {error
-        ? <p style={{ color: 'red' }}>{error}</p>
-        : <p>Estado: <strong>{backendStatus}</strong></p>
-      }
+    <div className="page">
+      <h1 className="page__title">DevMentor — Cuestionario de Diagnóstico</h1>
+      <p className="page__subtitle">
+        Responde con honestidad. No hay respuestas correctas ni incorrectas.
+        Haz clic en cada sección para desplegarla.
+      </p>
+
+      <form onSubmit={e => e.preventDefault()}>
+        {sections.map((section, index) => (
+          <SectionAccordion
+            key={section.name}
+            sectionName={section.name}
+            questions={section.questions}
+            answers={answers}
+            onChange={handleChange}
+            initialOpen={index === 0}   // la primera sección arranca abierta
+          />
+        ))}
+
+        <div className="submit-area">
+          <button type="button" className="btn-submit" onClick={handleSubmit}>
+            Enviar Cuestionario
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
-
-export default App

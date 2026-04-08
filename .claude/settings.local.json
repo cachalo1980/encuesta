@@ -15,7 +15,25 @@
       "Bash(python3 -c ':*)",
       "Bash(curl -s -X POST \"http://localhost:8001/users/1/responses/\" -H \"Content-Type: application/json\" -d '[{\"question_id\": 1, \"text_answer\": \"25 años\"}, {\"question_id\": 12, \"scale_answer\": 7}]')",
       "Bash(curl -s http://localhost:8001/users/1/responses/)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8001/health)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8001/health)",
+      "Bash(curl -s -o /dev/null -w \"frontend HTTP: %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"backend HTTP: %{http_code}\\\\n\" http://localhost:8001/health)",
+      "Bash(curl -s -o /dev/null -w \"frontend HTTP %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"backend HTTP %{http_code}\\\\n\" http://localhost:8001/health)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://172.26.0.4:5173)",
+      "Bash(curl -s -o /dev/null -w \"5173 HTTP %{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(curl -v http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"3000: HTTP %{http_code}\\\\n\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"5173: HTTP %{http_code}\\\\n\" http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"container IP HTTP %{http_code}\\\\n\" http://172.26.0.4:3000)",
+      "Bash(docker exec:*)",
+      "Bash(sudo ufw:*)",
+      "Read(//etc/docker/**)",
+      "Bash(docker run:*)",
+      "Bash(docker stop:*)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:4000)",
+      "Bash(python3 -c \"import sys,json; users=json.load\\(sys.stdin\\); print\\(f'Usuarios existentes: {len\\(users\\)}'\\); [print\\(f'  id={u[\\\\\"id\\\\\"]} email={u[\\\\\"email\\\\\"]}'\\) for u in users]\")",
+      "Bash(curl -s -X POST http://localhost:8001/users/1/responses/ -H 'Content-Type: application/json' -d '[:*)"
     ]
   }
 }

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -X POST http://localhost:8001/users/ -H 'Content-Type: application/json' -d '{\"name\":\"Manuel Rodriguez\",\"email\":\"radamanuelrod@gmail.com\"}')",
+      "Bash(python3 -c \"import sys,json; rs=json.load\\(sys.stdin\\); print\\(f'Admin ve {len\\(rs\\)} respuestas'\\); [print\\(f'  id={r[\\\\\"id\\\\\"]} user={r[\\\\\"user_id\\\\\"]} q={r[\\\\\"question_id\\\\\"]} eval={r[\\\\\"evaluation\\\\\"]}'\\) for r in rs]\")",
+      "Bash(curl -s -o /dev/null -w 'PATCH evaluacion: HTTP %{http_code}\\\\n' -X PATCH http://localhost:8001/admin/responses/1/ -H 'Content-Type: application/json' -H 'X-Admin-Password: devmentor2024' -d '{\"evaluation\":\"Buena respuesta, dentro del rango esperado.\",\"score\":8}')"
+    ]
+  }
+}

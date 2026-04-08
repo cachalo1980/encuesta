@@ -10,8 +10,9 @@ El script elimina las preguntas (y respuestas asociadas) existentes antes de
 reinsertar, garantizando que siempre quede el cuestionario definitivo.
 """
 
+from sqlalchemy import text
 from database import SessionLocal
-from models import Question, Response
+from models import Question
 
 questions_data = [
     # 1. Perfil General
@@ -98,19 +99,18 @@ questions_data = [
 def seed_questions():
     db = SessionLocal()
     try:
-        # Eliminar respuestas primero (FK hacia questions) y luego las preguntas.
-        # Esto garantiza que el cuestionario quede en su estado definitivo sin
-        # violar la restricción de clave foránea responses.question_id → questions.id.
-        responses_deleted = db.query(Response).delete()
-        questions_deleted = db.query(Question).delete()
+        # TRUNCATE con RESTART IDENTITY CASCADE hace tres cosas en una sola sentencia:
+        #   1. Borra todas las filas de 'questions' y 'responses' (CASCADE elimina las FK)
+        #   2. Resetea la secuencia autoincrement a 1 (RESTART IDENTITY)
+        #   3. Es atómica: si algo falla, el rollback revierte todo
+        # Esto garantiza que los IDs siempre empiecen en 1, evitando desincronía
+        # entre lo que el frontend recibe de la API y lo que hay en la DB.
+        db.execute(text("TRUNCATE questions, responses RESTART IDENTITY CASCADE"))
         db.commit()
-
-        if questions_deleted > 0:
-            print(f"[seeder] Se eliminaron {questions_deleted} preguntas y {responses_deleted} respuestas previas.")
 
         db.bulk_insert_mappings(Question, questions_data)
         db.commit()
-        print(f"[seeder] {len(questions_data)} preguntas insertadas correctamente.")
+        print(f"[seeder] {len(questions_data)} preguntas insertadas con IDs desde 1.")
     finally:
         db.close()
 

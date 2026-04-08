@@ -1,26 +1,21 @@
+import os
 from typing import List
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 
 import models
 import schemas
 from database import engine, get_db
 
-# Crea las tablas en PostgreSQL si aún no existen.
-# Se ejecuta antes de instanciar FastAPI para que la DB esté lista desde el primer request.
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="DevMentor Survey API", version="0.4.0")
+app = FastAPI(title="DevMentor Survey API", version="0.6.0")
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-# Permite que el frontend (React u otro cliente) haga peticiones al backend
-# desde un origen diferente (distinto puerto o dominio).
-# allow_origins=["*"] es permisivo: válido para desarrollo y MVP.
-# En producción, reemplazar "*" por el dominio real del frontend.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,6 +23,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Autenticación básica para rutas de admin ──────────────────────────────────
+# Implementación intencional mínima: un header personalizado con contraseña fija.
+# ¿Por qué no JWT/OAuth2 aquí?
+#   - JWT requiere un sistema de login completo (emisión de tokens, refresh, etc.)
+#   - Para un MVP de acceso interno con un solo mentor, este approach es suficiente
+#   - En producción real se usaría OAuth2 con Bearer tokens (FastAPI lo soporta)
+# La contraseña viene de la variable de entorno ADMIN_PASSWORD del contenedor,
+# nunca hardcodeada en el código fuente.
+def require_admin(x_admin_password: str = Header(default=None)):
+    """
+    Dependencia que valida el header X-Admin-Password.
+    FastAPI convierte automáticamente 'X-Admin-Password' → 'x_admin_password'
+    (minúsculas, guiones → guiones bajos).
+    Si la contraseña no coincide, retorna 403 Forbidden.
+    """
+    admin_pwd = os.getenv("ADMIN_PASSWORD", "")
+    if not admin_pwd or x_admin_password != admin_pwd:
+        raise HTTPException(
+            status_code=403,
+            detail="Acceso denegado. Header X-Admin-Password incorrecto.",
+        )
 
 
 # ── Utilidades ────────────────────────────────────────────────────────────────
@@ -72,10 +90,7 @@ def get_users(db: Session = Depends(get_db)):
 
 @app.get("/questions/", response_model=List[schemas.QuestionResponse])
 def get_questions(db: Session = Depends(get_db)):
-    """
-    Retorna todas las preguntas del cuestionario ordenadas por 'order'.
-    La tabla se puebla ejecutando: docker compose exec backend python seed.py
-    """
+    """Retorna todas las preguntas ordenadas por 'order'."""
     return db.query(models.Question).order_by(models.Question.order).all()
 
 
@@ -92,13 +107,14 @@ def create_responses(
     db: Session = Depends(get_db),
 ):
     """
-    Guarda las respuestas de un mentoreado al cuestionario.
-    Recibe una lista de respuestas en un solo request (envío del formulario completo).
-    Retorna HTTP 404 si el usuario no existe.
+    Guarda (o reemplaza) las respuestas de un mentoreado.
+    Estrategia idempotente: delete + insert dentro de la misma transacción.
     """
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
+
+    db.query(models.Response).filter(models.Response.user_id == user_id).delete()
 
     saved = []
     for r in responses_in:
@@ -113,17 +129,13 @@ def create_responses(
 
     db.commit()
     for r in saved:
-        db.refresh(r)  # Recarga cada objeto para obtener id y created_at generados por la DB
+        db.refresh(r)
     return saved
 
 
 @app.get("/users/{user_id}/responses/", response_model=List[schemas.ResponseOut])
 def get_user_responses(user_id: int, db: Session = Depends(get_db)):
-    """
-    Retorna todas las respuestas de un mentoreado específico.
-    Permite al mentor revisar el cuestionario contestado.
-    Retorna HTTP 404 si el usuario no existe.
-    """
+    """Retorna todas las respuestas de un mentoreado específico."""
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
@@ -133,4 +145,83 @@ def get_user_responses(user_id: int, db: Session = Depends(get_db)):
         .filter(models.Response.user_id == user_id)
         .order_by(models.Response.question_id)
         .all()
+    )
+
+
+# ── Admin ─────────────────────────────────────────────────────────────────────
+
+@app.get(
+    "/admin/responses/",
+    response_model=List[schemas.AdminResponseOut],
+    dependencies=[Depends(require_admin)],
+)
+def get_all_responses(db: Session = Depends(get_db)):
+    """
+    Retorna todas las respuestas de todos los usuarios, enriquecidas con el
+    texto de la pregunta. Usa joinedload para cargar preguntas en una sola query
+    (evita el problema N+1: una query extra por cada respuesta).
+    Requiere header X-Admin-Password.
+    """
+    responses = (
+        db.query(models.Response)
+        .options(joinedload(models.Response.question))
+        .order_by(models.Response.user_id, models.Response.question_id)
+        .all()
+    )
+    return [
+        schemas.AdminResponseOut(
+            id=r.id,
+            user_id=r.user_id,
+            question_id=r.question_id,
+            question_text=r.question.text,
+            text_answer=r.text_answer,
+            scale_answer=r.scale_answer,
+            evaluation=r.evaluation,
+            score=r.score,
+        )
+        for r in responses
+    ]
+
+
+@app.patch(
+    "/admin/responses/{response_id}/",
+    response_model=schemas.AdminResponseOut,
+    dependencies=[Depends(require_admin)],
+)
+def update_evaluation(
+    response_id: int,
+    update_in: schemas.EvaluationUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Permite al mentor guardar su evaluación y puntuación sobre una respuesta.
+    Solo actualiza los campos enviados (PATCH semántico: campos omitidos = sin cambio).
+    Requiere header X-Admin-Password.
+    """
+    response = (
+        db.query(models.Response)
+        .options(joinedload(models.Response.question))
+        .filter(models.Response.id == response_id)
+        .first()
+    )
+    if not response:
+        raise HTTPException(status_code=404, detail="Respuesta no encontrada.")
+
+    if update_in.evaluation is not None:
+        response.evaluation = update_in.evaluation
+    if update_in.score is not None:
+        response.score = update_in.score
+
+    db.commit()
+    db.refresh(response)
+
+    return schemas.AdminResponseOut(
+        id=response.id,
+        user_id=response.user_id,
+        question_id=response.question_id,
+        question_text=response.question.text,
+        text_answer=response.text_answer,
+        scale_answer=response.scale_answer,
+        evaluation=response.evaluation,
+        score=response.score,
     )

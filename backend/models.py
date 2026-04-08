@@ -41,6 +41,8 @@ class Response(Base):
     question_id    = Column(Integer, ForeignKey("questions.id"), nullable=False)
     text_answer    = Column(Text, nullable=True)          # Para respuestas de texto libre
     scale_answer   = Column(Integer, nullable=True)       # Para respuestas 1-10
+    evaluation     = Column(Text, nullable=True)          # Feedback escrito por el mentor
+    score          = Column(Integer, nullable=True)       # Puntuación asignada por el mentor (1-10)
     created_at     = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user           = relationship("User", back_populates="responses")

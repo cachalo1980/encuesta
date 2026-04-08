@@ -34,12 +34,10 @@ class QuestionBase(BaseModel):
 
 
 class QuestionResponse(QuestionBase):
-    """Datos que la API devuelve al listar preguntas. Hereda todos los campos de QuestionBase."""
+    """Datos que la API devuelve al listar preguntas."""
     id: int
 
     model_config = {"from_attributes": True}
-    # La herencia evita repetir los 5 campos de QuestionBase. QuestionResponse
-    # solo añade lo que la DB genera: el id asignado automáticamente.
 
 
 # ── Respuestas ────────────────────────────────────────────────────────────────
@@ -47,7 +45,7 @@ class QuestionResponse(QuestionBase):
 class ResponseCreate(BaseModel):
     """
     Datos que el cliente envía para responder una pregunta.
-    Solo uno de los dos campos de respuesta debe estar presente según el tipo de pregunta:
+    Solo uno de los dos campos de respuesta debe estar presente:
     - text_answer:  para TEXT y PARAGRAPH
     - scale_answer: para LINEAR_SCALE (valores 1-10)
     """
@@ -57,8 +55,35 @@ class ResponseCreate(BaseModel):
 
 
 class ResponseOut(ResponseCreate):
-    """Datos que la API devuelve al leer las respuestas. Hereda de ResponseCreate."""
-    id:      int
-    user_id: int
+    """Datos que la API devuelve al leer las respuestas del cuestionario."""
+    id:         int
+    user_id:    int
+    evaluation: Optional[str] = None   # Feedback escrito por el mentor
+    score:      Optional[int] = None   # Puntuación asignada por el mentor
 
     model_config = {"from_attributes": True}
+
+
+# ── Admin ─────────────────────────────────────────────────────────────────────
+
+class AdminResponseOut(BaseModel):
+    """
+    Respuesta enriquecida para el panel de administración.
+    Incluye el texto de la pregunta (obtenido por JOIN) para que el mentor
+    no tenga que cruzar datos manualmente.
+    No usa from_attributes porque se construye manualmente en el endpoint.
+    """
+    id:            int
+    user_id:       int
+    question_id:   int
+    question_text: str
+    text_answer:   Optional[str] = None
+    scale_answer:  Optional[int] = None
+    evaluation:    Optional[str] = None
+    score:         Optional[int] = None
+
+
+class EvaluationUpdate(BaseModel):
+    """Payload para PATCH /admin/responses/{id}/. Ambos campos son opcionales."""
+    evaluation: Optional[str] = None
+    score:      Optional[int] = None

@@ -25,9 +25,21 @@ services:
       - "8001:8000"  # host:8001 → contenedor:8000 (evita conflicto con otras APIs en WSL)
     environment:
       DATABASE_URL: postgresql://encuesta_user:encuesta_pass@db:5432/encuesta_db
+      ADMIN_PASSWORD: devmentor2024
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: encuesta_frontend
+    ports:
+      - "4000:4000"  # host:4000 → contenedor:4000 (Vite — 5173 y 3000 reservados en este WSL)
+    volumes:
+      - ./frontend:/app          # bind-mount: cambios en el host se reflejan al instante
+      - /app/node_modules        # volumen anónimo: protege node_modules del contenedor
+    depends_on:
+      - backend
 
 volumes:
   db_data:

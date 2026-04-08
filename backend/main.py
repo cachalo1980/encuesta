@@ -3,7 +3,6 @@ from typing import List
 
 from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 
@@ -13,7 +12,7 @@ from database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="DevMentor Survey API", version="0.6.0")
+app = FastAPI(title="DevMentor Survey API", version="0.7.0")
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 app.add_middleware(
@@ -25,23 +24,24 @@ app.add_middleware(
 )
 
 
-# ── Autenticación básica para rutas de admin ──────────────────────────────────
-# Implementación intencional mínima: un header personalizado con contraseña fija.
-# ¿Por qué no JWT/OAuth2 aquí?
-#   - JWT requiere un sistema de login completo (emisión de tokens, refresh, etc.)
-#   - Para un MVP de acceso interno con un solo mentor, este approach es suficiente
-#   - En producción real se usaría OAuth2 con Bearer tokens (FastAPI lo soporta)
-# La contraseña viene de la variable de entorno ADMIN_PASSWORD del contenedor,
-# nunca hardcodeada en el código fuente.
+# ── Contraseña admin en memoria ───────────────────────────────────────────────
+# Se inicializa desde la variable de entorno al arrancar el contenedor.
+# Al cambiarla via PATCH /admin/change-password/ se actualiza solo en este proceso:
+# persiste mientras el contenedor vive y se resetea al reiniciar.
+#
+# ¿Por qué no en la DB? Para este MVP de acceso interno es suficiente.
+# En producción: guardarla en DB hasheada con bcrypt, nunca en texto plano.
+_admin_password: str = os.getenv("ADMIN_PASSWORD", "")
+
+
 def require_admin(x_admin_password: str = Header(default=None)):
     """
-    Dependencia que valida el header X-Admin-Password.
+    Dependencia que valida el header X-Admin-Password contra _admin_password.
     FastAPI convierte automáticamente 'X-Admin-Password' → 'x_admin_password'
     (minúsculas, guiones → guiones bajos).
     Si la contraseña no coincide, retorna 403 Forbidden.
     """
-    admin_pwd = os.getenv("ADMIN_PASSWORD", "")
-    if not admin_pwd or x_admin_password != admin_pwd:
+    if not _admin_password or x_admin_password != _admin_password:
         raise HTTPException(
             status_code=403,
             detail="Acceso denegado. Header X-Admin-Password incorrecto.",
@@ -68,15 +68,17 @@ def db_check(db: Session = Depends(get_db)):
 
 @app.post("/users/", response_model=schemas.UserResponse, status_code=201)
 def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Crea un nuevo mentoreado. Retorna HTTP 400 si el email ya existe."""
+    """
+    Crea un nuevo mentoreado o retorna el existente si el email ya está registrado.
+    Estrategia upsert-by-email: el mentoreado puede recargar la página sin perder su sesión.
+    """
+    existing = db.query(models.User).filter(models.User.email == user_in.email).first()
+    if existing:
+        return existing
     new_user = models.User(name=user_in.name, email=user_in.email)
     db.add(new_user)
-    try:
-        db.commit()
-        db.refresh(new_user)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="El email ya está registrado.")
+    db.commit()
+    db.refresh(new_user)
     return new_user
 
 
@@ -164,7 +166,7 @@ def get_all_responses(db: Session = Depends(get_db)):
     """
     responses = (
         db.query(models.Response)
-        .options(joinedload(models.Response.question))
+        .options(joinedload(models.Response.question), joinedload(models.Response.user))
         .order_by(models.Response.user_id, models.Response.question_id)
         .all()
     )
@@ -172,6 +174,7 @@ def get_all_responses(db: Session = Depends(get_db)):
         schemas.AdminResponseOut(
             id=r.id,
             user_id=r.user_id,
+            user_name=r.user.name,
             question_id=r.question_id,
             question_text=r.question.text,
             text_answer=r.text_answer,
@@ -200,7 +203,7 @@ def update_evaluation(
     """
     response = (
         db.query(models.Response)
-        .options(joinedload(models.Response.question))
+        .options(joinedload(models.Response.question), joinedload(models.Response.user))
         .filter(models.Response.id == response_id)
         .first()
     )
@@ -218,6 +221,7 @@ def update_evaluation(
     return schemas.AdminResponseOut(
         id=response.id,
         user_id=response.user_id,
+        user_name=response.user.name,
         question_id=response.question_id,
         question_text=response.question.text,
         text_answer=response.text_answer,
@@ -225,3 +229,21 @@ def update_evaluation(
         evaluation=response.evaluation,
         score=response.score,
     )
+
+
+@app.patch(
+    "/admin/change-password/",
+    dependencies=[Depends(require_admin)],
+)
+def change_admin_password(body: schemas.ChangePasswordRequest):
+    """
+    Cambia la contraseña de administrador en memoria.
+    Requiere la contraseña actual en el header X-Admin-Password.
+    La nueva contraseña vive en este proceso hasta que el contenedor se reinicie;
+    al reiniciar vuelve al valor de ADMIN_PASSWORD del docker-compose.yml.
+    """
+    global _admin_password
+    if not body.new_password or not body.new_password.strip():
+        raise HTTPException(status_code=422, detail="La nueva contraseña no puede estar vacía.")
+    _admin_password = body.new_password
+    return {"detail": "Contraseña actualizada correctamente."}

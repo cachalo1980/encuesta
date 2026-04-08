@@ -35,6 +35,12 @@ services:
     container_name: encuesta_frontend
     ports:
       - "4000:4000"  # host:4000 → contenedor:4000 (Vite — 5173 y 3000 reservados en este WSL)
+    environment:
+      # URL del backend que usará el frontend para las llamadas de axios.
+      # En local apunta al backend vía el puerto expuesto en el host.
+      # En el VPS, sobreescribí este valor con la URL pública del backend
+      # (ej: https://api.caruao.cloud o https://encuesta.caruao.cloud/api).
+      VITE_API_URL: http://localhost:8001
     volumes:
       - ./frontend:/app          # bind-mount: cambios en el host se reflejan al instante
       - /app/node_modules        # volumen anónimo: protege node_modules del contenedor

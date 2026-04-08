@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8001'
+const API_URL = import.meta.env.VITE_API_URL
 
 // Agrupa el array plano de respuestas por user_id.
 // Devuelve: Map { 1 => [...respuestas], 2 => [...respuestas] }
@@ -13,6 +13,11 @@ function groupByUser(responses) {
     map.get(r.user_id).push(r)
   }
   return map
+}
+
+// Calcula cuántas respuestas de un usuario ya tienen evaluación guardada
+function countEvaluated(userResponses) {
+  return userResponses.filter(r => r.evaluation || r.score).length
 }
 
 // ── Fila de una respuesta individual ─────────────────────────────────────────
@@ -43,7 +48,6 @@ function ResponseRow({ response, adminPwd }) {
     }
   }
 
-  // Muestra el valor de la respuesta según el tipo
   const answerDisplay = response.scale_answer !== null
     ? <span className="answer-scale">{response.scale_answer} / 10</span>
     : <span className="answer-text">{response.text_answer || <em>Sin respuesta</em>}</span>
@@ -77,11 +81,7 @@ function ResponseRow({ response, adminPwd }) {
               ))}
             </select>
           </label>
-          <button
-            className="btn-save"
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <button className="btn-save" onClick={handleSave} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
           {saved && <span className="save-ok">✓ Guardado</span>}
@@ -92,15 +92,50 @@ function ResponseRow({ response, adminPwd }) {
   )
 }
 
+// ── Acordeón de un usuario ────────────────────────────────────────────────────
+function UserAccordion({ userId, userResponses, adminPwd, isOpen, onToggle }) {
+  const evaluated = countEvaluated(userResponses)
+  const total     = userResponses.length
+  const allDone   = evaluated === total
+
+  return (
+    <div className={`user-accordion ${isOpen ? 'user-accordion--open' : ''}`}>
+      <button className="user-accordion__header" onClick={onToggle}>
+        <div className="user-accordion__info">
+          <span className="user-accordion__name">{userResponses[0].user_name}</span>
+          <span className="user-accordion__id">#{userId}</span>
+        </div>
+        <div className="user-accordion__meta">
+          <span className={`user-accordion__badge ${allDone ? 'user-accordion__badge--done' : ''}`}>
+            {evaluated}/{total} evaluadas
+          </span>
+          <span className="user-accordion__arrow">▼</span>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="user-accordion__body">
+          {userResponses.map(r => (
+            <ResponseRow key={r.id} response={r} adminPwd={adminPwd} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Panel de administración ───────────────────────────────────────────────────
 export default function AdminPanel() {
-  const { state }       = useLocation()
-  const navigate        = useNavigate()
-  const adminPwd        = state?.adminPwd ?? ''
+  const { state }  = useLocation()
+  const navigate   = useNavigate()
+  const adminPwd   = state?.adminPwd ?? ''
 
-  const [responses, setResponses] = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [error, setError]         = useState(null)
+  const [responses, setResponses]           = useState([])
+  const [loading, setLoading]               = useState(true)
+  const [error, setError]                   = useState(null)
+  const [expandedUserId, setExpandedUserId] = useState(null)
+  const [changePwdMsg, setChangePwdMsg]     = useState(null)
+  const [changePwdError, setChangePwdError] = useState(null)
 
   useEffect(() => {
     if (!adminPwd) {
@@ -114,11 +149,33 @@ export default function AdminPanel() {
     })
       .then(res => { setResponses(res.data); setLoading(false) })
       .catch(err => {
-        const detail = err.response?.data?.detail ?? err.message
-        setError(detail)
+        setError(err.response?.data?.detail ?? err.message)
         setLoading(false)
       })
   }, [adminPwd])
+
+  function toggleUser(userId) {
+    // Clic en el mismo usuario abierto → cierra. Clic en otro → abre ese.
+    setExpandedUserId(prev => prev === userId ? null : userId)
+  }
+
+  async function handleChangePassword() {
+    const newPwd = window.prompt('Nueva contraseña de administrador:')
+    if (newPwd === null) return
+    if (!newPwd.trim()) { setChangePwdError('La contraseña no puede estar vacía.'); return }
+    setChangePwdMsg(null); setChangePwdError(null)
+    try {
+      await axios.patch(
+        `${API_URL}/admin/change-password/`,
+        { new_password: newPwd },
+        { headers: { 'X-Admin-Password': adminPwd } },
+      )
+      setChangePwdMsg('✓ Contraseña actualizada. Se resetea al reiniciar el contenedor.')
+      setTimeout(() => setChangePwdMsg(null), 6000)
+    } catch (err) {
+      setChangePwdError('✗ ' + (err.response?.data?.detail ?? err.message))
+    }
+  }
 
   if (loading) return <p className="status-msg">Cargando respuestas...</p>
 
@@ -137,23 +194,33 @@ export default function AdminPanel() {
     <div className="page">
       <div className="admin-header">
         <h1 className="page__title">Panel de Administración</h1>
-        <button className="btn-back" onClick={() => navigate('/')}>← Volver al formulario</button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <button className="btn-back" onClick={handleChangePassword}>🔑 Cambiar contraseña</button>
+          <button className="btn-back" onClick={() => navigate('/')}>← Volver al formulario</button>
+        </div>
       </div>
+
+      {changePwdMsg   && <p className="save-ok"   style={{ marginBottom: '0.75rem' }}>{changePwdMsg}</p>}
+      {changePwdError && <p className="save-error" style={{ marginBottom: '0.75rem' }}>{changePwdError}</p>}
+
       <p className="page__subtitle">
-        {responses.length} respuestas de {byUser.size} usuario(s).
+        {byUser.size} encuestado(s) · {responses.length} respuestas en total.
+        Hacé clic en un nombre para ver el detalle.
       </p>
 
-      {responses.length === 0 && (
+      {byUser.size === 0 && (
         <p className="status-msg">Aún no hay respuestas enviadas.</p>
       )}
 
       {Array.from(byUser.entries()).map(([userId, userResponses]) => (
-        <section key={userId} className="user-section">
-          <h2 className="user-section__title">Usuario #{userId}</h2>
-          {userResponses.map(r => (
-            <ResponseRow key={r.id} response={r} adminPwd={adminPwd} />
-          ))}
-        </section>
+        <UserAccordion
+          key={userId}
+          userId={userId}
+          userResponses={userResponses}
+          adminPwd={adminPwd}
+          isOpen={expandedUserId === userId}
+          onToggle={() => toggleUser(userId)}
+        />
       ))}
     </div>
   )

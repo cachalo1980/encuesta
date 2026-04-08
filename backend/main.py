@@ -15,9 +15,15 @@ models.Base.metadata.create_all(bind=engine)
 app = FastAPI(title="DevMentor Survey API", version="0.7.0")
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:4000").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

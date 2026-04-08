@@ -26,6 +26,9 @@ services:
     environment:
       DATABASE_URL: postgresql://encuesta_user:encuesta_pass@db:5432/encuesta_db
       ADMIN_PASSWORD: devmentor2024
+      # Orígenes permitidos por CORS (separados por coma si hay más de uno).
+      # En local: el frontend corre en 4000. En producción: el dominio público.
+      ALLOWED_ORIGINS: http://localhost:4000
     depends_on:
       db:
         condition: service_healthy

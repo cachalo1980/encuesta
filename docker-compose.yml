@@ -29,5 +29,16 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    build: ./frontend
+    container_name: encuesta_frontend
+    ports:
+      - "4000:4000"  # host:4000 → contenedor:4000 (Vite — 5173 y 3000 reservados en este WSL)
+    volumes:
+      - ./frontend:/app          # bind-mount: cambios en el host se reflejan al instante
+      - /app/node_modules        # volumen anónimo: protege node_modules del contenedor
+    depends_on:
+      - backend
+
 volumes:
   db_data:

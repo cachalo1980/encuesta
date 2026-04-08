@@ -5,7 +5,7 @@ import './App.css'
 import SectionAccordion from './components/SectionAccordion'
 import AdminPanel from './components/AdminPanel'
 
-const API_URL = 'http://localhost:8001'
+const API_URL = import.meta.env.VITE_API_URL
 
 function buildSections(questions) {
   const map = new Map()

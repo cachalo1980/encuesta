@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8001'
+const API_URL = import.meta.env.VITE_API_URL
 
 // Agrupa el array plano de respuestas por user_id.
 // Devuelve: Map { 1 => [...respuestas], 2 => [...respuestas] }
